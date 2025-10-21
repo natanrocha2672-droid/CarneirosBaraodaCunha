@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barão da Cunha - Carneiros Hidráulicos</title>
+
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+
+    <style>
+        /* CSS para deixar o site bonito */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        header {
+            background-color: #1F1F1F;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        main {
+            padding: 20px;
+        }
+        #product-list {
+            display: grid;
+            gap: 20px;
+        }
+        .product-card {
+            background-color: #1F1F1F;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            align-items: center;
+        }
+        .product-card img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .product-info {
+            flex-grow: 1;
+        }
+        .product-info h2 {
+            font-size: 1.1em;
+            margin: 0 0 5px 0;
+            color: #fff;
+        }
+        .product-info p {
+            font-size: 0.9em;
+            margin: 0 0 10px 0;
+            color: #aaa;
+        }
+        .product-info .price {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4CAF50; /* Verde */
+            margin-bottom: 15px;
+        }
+        .product-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .product-buttons button, .product-buttons a {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .product-buttons .ml-button {
+            background-color: #666; /* Cinza para o botão ML */
+        }
+        
+        /* Estilos para o Modal de Pagamento */
+        #payment-modal {
+            display: none; /* Escondido por padrão */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box; /* Garante que o padding não quebre o layout */
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+        }
+        /* Contêineres que o Mercado Pago vai usar */
+        #form-checkout__cardNumber-container,
+        #form-checkout__expirationDate-container,
+        #form-checkout__securityCode-container {
+            height: 40px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #333;
+            padding: 10px;
+        }
+        #loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        #payment-message {
+            display: none;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        #payment-message.success {
+            background-color: #4CAF50;
+        }
+        #payment-message.error {
+            background-color: #f44336;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Barão da Cunha - Catálogo</h1>
+    </header>
+
+    <main>
+        <div id="product-list">
+            </div>
+        
+        <div id="loading-spinner">
+            <p>Carregando produtos...</p>
+        </div>
+    </main>
+
+    <div id="payment-modal">
+        <div class="modal-content">
+            <h2 id="modal-product-title">Finalizar Compra</h2>
+            <p id="modal-product-price"></p>
+            
+            <form id="form-checkout">
+                <div class="form-group">
+                    <label for="payerFirstName">Nome</label>
+                    <input id="payerFirstName" name="payerFirstName" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="payerLastName">Sobrenome</label>
+                    <input id="payerLastName" name="payerLastName" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="payerEmail">E-mail</label>
+                    <input id="payerEmail" name="payerEmail" type="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="docType">Tipo de Documento</label>
+                    <select id="docType" name="docType" required>
+                        <option value="CPF">CPF</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="docNumber">Número do Documento</label>
+                    <input id="docNumber" name="docNumber" type="text" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Número do Cartão</label>
+                    <div id="form-checkout__cardNumber-container"></div>
+                </div>
+                <div class="form-group">
+                    <label>Vencimento (MM/YY)</label>
+                    <div id="form-checkout__expirationDate-container"></div>
+                </div>
+                <div class="form-group">
+                    <label>Cód. de Segurança (CVV)</label>
+                    <div id="form-checkout__securityCode-container"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="installments">Parcelas</label>
+                    <select id="installments" name="installments" required></select>
+                </div>
+                
+                <button type="submit" id="form-checkout__submit">Pagar</button>
+                <button type="button" id="modal-close-button">Cancelar</button>
+            </form>
+            
+            <div id="payment-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÕES ---
+        // ATENÇÃO: Cole sua CHAVE PÚBLICA aqui!
+        const MERCADO_PAGO_PUBLIC_KEY = 'APP_USR-04d93533-092a-43b1-a139-93352276650d';
+        
+        // ATENÇÃO: Cole a URL do seu servidor do Render aqui!
+        const API_BACKEND_URL = 'https://fertas.onrender.com'; // Use a sua URL
+        
+        // --- INICIALIZAÇÃO ---
+        const mp = new MercadoPago(MERCADO_PAGO_PUBLIC_KEY);
+        
+        // Variáveis globais
+        const productListContainer = document.getElementById('product-list');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const paymentModal = document.getElementById('payment-modal');
+        const modalCloseButton = document.getElementById('modal-close-button');
+        const formCheckout = document.getElementById('form-checkout');
+        const paymentMessage = document.getElementById('payment-message');
+        
+        let currentCardPaymentBrick = null;
+        let currentProduct = null;
+
+        // --- 1. BUSCAR PRODUTOS QUANDO A PÁGINA CARREGA ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Página carregada. Buscando produtos...');
+            loadingSpinner.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_BACKEND_URL}/api/produtos`);
+                if (!response.ok) {
+                    throw new Error(`Erro de rede: ${response.statusText}`);
+                }
+                const produtos = await response.json();
+                console.log('Produtos recebidos:', produtos);
+                renderProdutos(produtos);
+                
+            } catch (error) {
+                console.error('Falha ao buscar produtos:', error);
+                productListContainer.innerHTML = '<p style="color: #f44336;">Falha ao carregar produtos. Tente novamente mais tarde.</p>';
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        // --- 2. RENDERIZAR OS PRODUTOS NA TELA ---
+        function renderProdutos(produtos) {
+            productListContainer.innerHTML = ''; // Limpa a lista
+            
+            if (produtos.length === 0) {
+                productListContainer.innerHTML = '<p>Nenhum produto encontrado.</p>';
+                return;
+            }
+            
+            produtos.forEach(produto => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                
+                // Formata o preço para R$ 1.350,00
+                const precoFormatado = new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                }).format(produto.preco);
+                
+                card.innerHTML = `
+                    <img src="${produto.imagem_url}" alt="${produto.nome}">
+                    <div class="product-info">
+                        <h2>${produto.nome}</h2>
+                        <p>${produto.descricao}</p>
+                        <div class="price">${precoFormatado}</div>
+                        <div class="product-buttons">
+                            <button class="buy-direct-button" data-product-id="${produto.id}">Comprar Agora (Pagamento Seguro)</button>
+                            <a href="${produto.link_ml}" class="ml-button" target="_blank" rel="noopener noreferrer">Comprar no Mercado Livre</a>
+                        </div>
+                    </div>
+                `;
+                productListContainer.appendChild(card);
+            });
+            
+            // Adiciona os "escutadores" de clique nos botões de compra
+            document.querySelectorAll('.buy-direct-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const productId = button.getAttribute('data-product-id');
+                    const produtoSelecionado = produtos.find(p => p.id === productId);
+                    abrirModalPagamento(produtoSelecionado);
+                });
+            });
+        }
+
+        // --- 3. ABRIR O MODAL DE PAGAMENTO ---
+        async function abrirModalPagamento(produto) {
+            console.log('Abrindo modal para:', produto.nome);
+            currentProduct = produto; // Salva o produto que está sendo comprado
+            
+            // Limpa mensagens de erro/sucesso antigas
+            paymentMessage.style.display = 'none';
+            formCheckout.reset(); // Limpa o formulário
+            
+            // Atualiza o título e preço no modal
+            document.getElementById('modal-product-title').innerText = `Comprar: ${produto.nome}`;
+            document.getElementById('modal-product-price').innerText = `Preço: ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produto.preco)}`;
+            
+            // Destrói o formulário de cartão antigo, se existir
+            if (currentCardPaymentBrick) {
+                currentCardPaymentBrick.unmount();
+            }
+            
+            // Mostra o modal
+            paymentModal.style.display = 'flex';
+            
+            try {
+                // --- INICIALIZA O MERCADO PAGO BRICKS ---
+                const bricksBuilder = mp.bricks();
+                
+                // Configurações do "Brick" de Cartão
+                const cardPaymentSettings = {
+                    initialization: {
+                        amount: produto.preco,
+                        payer: {
+                            email: "", // O cliente vai preencher
+                        },
+                    },
+                    customization: {
+                        paymentMethods: {
+                            maxInstallments: 12,
+                        },
+                        visual: {
+                            style: {
+                                theme: 'dark', // Tema escuro para combinar
+                            }
+                        }
+                    },
+                    callbacks: {
+                        onReady: () => console.log('Brick de cartão pronto!'),
+                        onError: (error) => console.error('Erro no Brick:', error),
+                        onSubmit: (cardFormData) => {
+                            // O cliente clicou em "Pagar"
+                            // O cardFormData contém os dados do cartão de forma segura
+                            console.log('Formulário de cartão enviado, processando...');
+                            processarPagamento(cardFormData);
+                        },
+                    },
+                };
+                
+                // Cria e "monta" o formulário do cartão
+                currentCardPaymentBrick = await bricksBuilder.create('cardPayment', 'form-checkout', cardPaymentSettings);
+                
+            } catch (error) {
+                console.error('Falha ao inicializar o Mercado Pago:', error);
+                paymentMessage.innerText = 'Erro ao carregar o formulário de pagamento. Tente novamente.';
+                paymentMessage.className = 'error';
+                paymentMessage.style.display = 'block';
+            }
+        }
+
+        // --- 4. PROCESSAR O PAGAMENTO ---
+        async function processarPagamento(cardFormData) {
+            console.log('Enviando dados para o backend...');
+            loadingSpinner.style.display = 'block';
+            paymentMessage.style.display = 'none';
+            
+            // Pega os dados extras do formulário (nome, email, cpf)
+            const payerFirstName = document.getElementById('payerFirstName').value;
+            const payerLastName = document.getElementById('payerLastName').value;
+            const payerEmail = document.getElementById('payerEmail').value;
+            const docType = document.getElementById('docType').value;
+            const docNumber = document.getElementById('docNumber').value;
+            
+            // Monta o "pacote" de dados para enviar ao nosso servidor no Render
+            const dataToSend = {
+                token: cardFormData.token,
+                installments: cardFormData.installments,
+                payment_method_id: cardFormData.payment_method_id,
+                payer: {
+                    email: payerEmail,
+                    first_name: payerFirstName,
+                    last_name: payerLastName,
+                    identification: {
+                        type: docType,
+                        number: docNumber
+                    }
+                },
+                produto_id: currentProduct.id // O ID do produto que estamos comprando
+            };
+            
+            try {
+                // "Liga" para o nosso servidor no Render
+                const response = await fetch(`${API_BACKEND_URL}/api/processar-pagamento`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(dataToSend),
+                });
+
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    // Se o nosso servidor deu erro (ex: 500)
+                    throw new Error(result.detalhes || 'Falha na requisição ao servidor.');
+                }
+                
+                // Se o pagamento foi aprovado ou está pendente
+                if (result.status === 'approved' || result.status === 'in_process') {
+                    console.log('Pagamento Aprovado/Pendente:', result);
+                    paymentMessage.innerText = `Pagamento ${result.status}! ID: ${result.id}. Obrigado!`;
+                    paymentMessage.className = 'success';
+                    setTimeout(() => {
+                        paymentModal.style.display = 'none';
+                    }, 3000); // Fecha o modal após 3s
+                } else {
+                    // Se o pagamento foi recusado pelo MP
+                    console.warn('Pagamento recusado:', result);
+                    paymentMessage.innerText = `Pagamento recusado. Motivo: ${result.status_detail}`;
+                    paymentMessage.className = 'error';
+                }
+                
+            } catch (error) {
+                console.error('Erro grave no processamento:', error);
+                paymentMessage.innerText = `Erro: ${error.message}`;
+                paymentMessage.className = 'error';
+            } finally {
+                loadingSpinner.style.display = 'none';
+                paymentMessage.style.display = 'block';
+            }
+        }
+        
+        // --- 5. FECHAR O MODAL ---
+        modalCloseButton.addEventListener('click', () => {
+            paymentModal.style.display = 'none';
+            if (currentCardPaymentBrick) {
+                currentCardPaymentBrick.unmount(); // Desmonta o formulário do cartão
+            }
+        });
+
+    </script>
+</body>
+</html>
